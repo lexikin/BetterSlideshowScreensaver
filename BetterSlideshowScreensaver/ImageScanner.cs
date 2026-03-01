@@ -19,10 +19,11 @@ public static class ImageScanner
         var files = Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
             .Where(f => ImageExtensions.Contains(Path.GetExtension(f)))
             .Where(f => excluded == null || !excluded.Contains(f))
+            .Select(f => (Path: f, Time: File.GetLastWriteTimeUtc(f)))
             .ToList();
 
-        files.Sort((a, b) => File.GetLastWriteTime(a).CompareTo(File.GetLastWriteTime(b)));
+        files.Sort((a, b) => a.Time.CompareTo(b.Time));
 
-        return files;
+        return files.Select(f => f.Path).ToList();
     }
 }

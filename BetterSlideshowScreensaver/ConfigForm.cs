@@ -5,6 +5,8 @@ public class ConfigForm : Form
     private readonly TextBox _folderPathTextBox;
     private readonly NumericUpDown _intervalNumeric;
     private readonly MonitorPreviewPanel _monitorPanel;
+    private readonly System.Windows.Forms.Timer _scanDebounce;
+    private CancellationTokenSource? _scanCts;
 
     public ConfigForm()
     {
@@ -63,7 +65,18 @@ public class ConfigForm : Form
             okButton, cancelButton
         });
 
-        _folderPathTextBox.TextChanged += (_, _) => ScanAndUpdateImages();
+        _scanDebounce = new System.Windows.Forms.Timer { Interval = 400 };
+        _scanDebounce.Tick += (_, _) =>
+        {
+            _scanDebounce.Stop();
+            ScanAndUpdateImages();
+        };
+
+        _folderPathTextBox.TextChanged += (_, _) =>
+        {
+            _scanDebounce.Stop();
+            _scanDebounce.Start();
+        };
 
         LoadConfig();
     }
@@ -77,18 +90,31 @@ public class ConfigForm : Form
         ScanAndUpdateImages();
     }
 
-    private void ScanAndUpdateImages()
+    private async void ScanAndUpdateImages()
     {
+        _scanCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _scanCts = cts;
+
         var folder = _folderPathTextBox.Text;
-        if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
-        {
-            var images = ImageScanner.ScanAndSort(folder);
-            _monitorPanel.SetImages(images);
-        }
-        else
+        if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
         {
             _monitorPanel.SetImages(new List<string>());
+            return;
         }
+
+        List<string> images;
+        try
+        {
+            images = await Task.Run(() => ImageScanner.ScanAndSort(folder), cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (cts.Token.IsCancellationRequested) return;
+        _monitorPanel.SetImages(images);
     }
 
     private void BrowseButton_Click(object? sender, EventArgs e)
