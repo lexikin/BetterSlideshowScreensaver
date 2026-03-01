@@ -100,12 +100,16 @@ public static class ScreensaverController
         _currentImagePath = _images[_currentIndex];
         _history.Add((_currentImagePath, DateTime.Now));
 
-        foreach (var (form, screen) in Forms)
+        for (var i = 0; i < Forms.Count; i++)
         {
+            var (form, screen) = Forms[i];
             if (_config.IsMonitorDisabled(screen.DeviceName))
                 form.ShowImage(null);
             else
-                form.ShowImage(LoadImage(_currentImagePath));
+            {
+                var idx = (_currentIndex + i) % _images.Count;
+                form.ShowImage(LoadImage(_images[idx]));
+            }
         }
     }
 

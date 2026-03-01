@@ -15,7 +15,10 @@ static class Program
 
         var firstArg = args[0].ToLowerInvariant().TrimStart('-', '/');
 
-        switch (firstArg)
+        // Windows passes /c:HWND for configure — strip everything after the flag letter
+        var flag = firstArg.Split(':')[0];
+
+        switch (flag)
         {
             case "c":
                 Application.Run(new ConfigForm());

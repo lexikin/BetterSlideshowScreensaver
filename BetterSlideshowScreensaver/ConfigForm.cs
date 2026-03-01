@@ -145,16 +145,14 @@ public class ConfigForm : Form
 
         private void LoadBezelImage()
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "monitor.png");
-            if (File.Exists(path))
+            try
             {
-                try
-                {
-                    var bytes = File.ReadAllBytes(path);
-                    _bezelImage = Image.FromStream(new MemoryStream(bytes));
-                }
-                catch { }
+                using var stream = typeof(MonitorPreviewPanel).Assembly
+                    .GetManifestResourceStream("BetterSlideshowScreensaver.monitor.png");
+                if (stream != null)
+                    _bezelImage = Image.FromStream(stream);
             }
+            catch { }
         }
 
         public void SetDisabledMonitors(List<string> disabled)

@@ -7,6 +7,10 @@
         <UseWindowsForms>true</UseWindowsForms>
         <ImplicitUsings>enable</ImplicitUsings>
         <ApplicationIcon>app.ico</ApplicationIcon>
+        <PublishSingleFile>true</PublishSingleFile>
+        <SelfContained>true</SelfContained>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     </PropertyGroup>
 
     <Target Name="RenameToScr" AfterTargets="Build">
@@ -14,9 +18,7 @@
     </Target>
 
     <ItemGroup>
-        <Content Include="monitor.png">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
+        <EmbeddedResource Include="monitor.png" />
     </ItemGroup>
 
 </Project>
