@@ -2,15 +2,39 @@ namespace BetterSlideshowScreensaver;
 
 static class Program
 {
-    /// <summary>
-    ///  The main entry point for the application.
-    /// </summary>
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
-        // To customize application configuration such as set high DPI settings or default font,
-        // see https://aka.ms/applicationconfiguration.
         ApplicationConfiguration.Initialize();
-        Application.Run(new Form1());
-    }    
+
+        if (args.Length == 0)
+        {
+            ScreensaverController.Run();
+            return;
+        }
+
+        var firstArg = args[0].ToLowerInvariant().TrimStart('-', '/');
+
+        switch (firstArg)
+        {
+            case "c":
+                Application.Run(new ConfigForm());
+                break;
+
+            case "s":
+                ScreensaverController.Run();
+                break;
+
+            case "p":
+                if (args.Length > 1 && IntPtr.TryParse(args[1], out var hwnd))
+                {
+                    ScreensaverController.RunPreview(hwnd);
+                }
+                break;
+
+            default:
+                ScreensaverController.Run();
+                break;
+        }
+    }
 }

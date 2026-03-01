@@ -6,6 +6,11 @@
         <Nullable>enable</Nullable>
         <UseWindowsForms>true</UseWindowsForms>
         <ImplicitUsings>enable</ImplicitUsings>
+        <ApplicationIcon>app.ico</ApplicationIcon>
     </PropertyGroup>
+
+    <Target Name="RenameToScr" AfterTargets="Build">
+        <Move SourceFiles="$(OutputPath)$(AssemblyName).exe" DestinationFiles="$(OutputPath)$(AssemblyName).scr" />
+    </Target>
 
 </Project>

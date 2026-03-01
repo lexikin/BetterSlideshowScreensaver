@@ -160,8 +160,7 @@ public class FileBrowserForm : Form
 
         foreach (var (path, shownAt) in deduped)
         {
-            var item = new ListViewItem(Path.GetFileName(path));
-            item.SubItems.Add(FormatTimeAgo(shownAt));
+            var item = new ListViewItem($"{Path.GetFileName(path)}  —  {FormatTimeAgo(shownAt)}");
             item.Tag = path;
             item.ToolTipText = path;
             _recentList.Items.Add(item);
