@@ -18,15 +18,16 @@ public class ScreensaverForm : Form
     public ScreensaverForm(IntPtr previewHwnd)
     {
         FormBorderStyle = FormBorderStyle.None;
+        StartPosition = FormStartPosition.Manual;
         ShowInTaskbar = false;
-
-        NativeMethods.GetClientRect(previewHwnd, out var rect);
-        Size = new Size(rect.Right - rect.Left, rect.Bottom - rect.Top);
-        Location = new Point(0, 0);
 
         NativeMethods.SetParent(Handle, previewHwnd);
         NativeMethods.SetWindowLong(Handle, NativeMethods.GWL_STYLE,
             NativeMethods.GetWindowLong(Handle, NativeMethods.GWL_STYLE) | NativeMethods.WS_CHILD);
+
+        NativeMethods.GetClientRect(previewHwnd, out var rect);
+        ClientSize = new Size(rect.Right - rect.Left, rect.Bottom - rect.Top);
+        Location = new Point(0, 0);
 
         SetupCommon();
     }

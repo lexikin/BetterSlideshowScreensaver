@@ -29,10 +29,13 @@ static class Program
                 break;
 
             case "p":
-                if (args.Length > 1 && IntPtr.TryParse(args[1], out var hwnd))
-                {
+                IntPtr hwnd = IntPtr.Zero;
+                var parts = firstArg.Split(':');
+                if (parts.Length > 1 && IntPtr.TryParse(parts[1], out hwnd)) { }
+                else if (args.Length > 1 && IntPtr.TryParse(args[1], out hwnd)) { }
+
+                if (hwnd != IntPtr.Zero)
                     ScreensaverController.RunPreview(hwnd);
-                }
                 break;
 
             default:
