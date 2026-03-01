@@ -5,7 +5,7 @@ public static class ScreensaverController
     private static List<string> _images = new();
     private static int _currentIndex;
     private static string _currentImagePath = "";
-    private static readonly List<ScreensaverForm> Forms = new();
+    private static readonly List<(ScreensaverForm Form, Screen Screen)> Forms = new();
     private static System.Windows.Forms.Timer? _timer;
     private static ScreensaverConfig _config = new();
     private static readonly Random Rng = new();
@@ -54,7 +54,7 @@ public static class ScreensaverController
         _config = ScreensaverConfig.Load();
 
         var form = new ScreensaverForm(previewHwnd);
-        Forms.Add(form);
+        Forms.Add((form, Screen.PrimaryScreen!));
 
         if (!string.IsNullOrEmpty(_config.ImageFolderPath) && Directory.Exists(_config.ImageFolderPath))
         {
@@ -84,11 +84,11 @@ public static class ScreensaverController
             var form = new ScreensaverForm(screen);
             form.DismissRequested += (_, _) => Dismiss(openFileBrowser: false);
             form.CtrlDismissRequested += (_, _) => Dismiss(openFileBrowser: true);
-            Forms.Add(form);
+            Forms.Add((form, screen));
         }
 
         // Show all forms — we use ApplicationContext so nothing is auto-shown
-        foreach (var form in Forms)
+        foreach (var (form, _) in Forms)
             form.Show();
     }
 
@@ -100,27 +100,12 @@ public static class ScreensaverController
         _currentImagePath = _images[_currentIndex];
         _history.Add((_currentImagePath, DateTime.Now));
 
-        switch (_config.MonitorMode)
+        foreach (var (form, screen) in Forms)
         {
-            case MultiMonitorMode.PrimaryOnly:
-                Forms[0].ShowImage(LoadImage(_currentImagePath));
-                for (var i = 1; i < Forms.Count; i++)
-                    Forms[i].ShowImage(null); // black
-                break;
-
-            case MultiMonitorMode.SameImage:
-                foreach (var form in Forms)
-                    form.ShowImage(LoadImage(_currentImagePath));
-                break;
-
-            case MultiMonitorMode.MainPlusPrevious:
-                Forms[0].ShowImage(LoadImage(_currentImagePath));
-                for (var i = 1; i < Forms.Count; i++)
-                {
-                    var prevIndex = (_currentIndex - i + _images.Count) % _images.Count;
-                    Forms[i].ShowImage(LoadImage(_images[prevIndex]));
-                }
-                break;
+            if (_config.IsMonitorDisabled(screen.DeviceName))
+                form.ShowImage(null);
+            else
+                form.ShowImage(LoadImage(_currentImagePath));
         }
     }
 
@@ -154,7 +139,7 @@ public static class ScreensaverController
         _timer?.Stop();
         _timer?.Dispose();
 
-        foreach (var form in Forms)
+        foreach (var (form, _) in Forms)
         {
             if (!form.IsDisposed)
                 form.Close();

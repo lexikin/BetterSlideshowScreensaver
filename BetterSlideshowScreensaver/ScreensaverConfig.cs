@@ -28,6 +28,7 @@ public class ScreensaverConfig
     public MultiMonitorMode MonitorMode { get; set; } = MultiMonitorMode.PrimaryOnly;
     public int SlideIntervalSeconds { get; set; } = 8;
     public List<string> ExcludedFiles { get; set; } = new();
+    public List<string> DisabledMonitors { get; set; } = new();
 
     public bool IsExcluded(string filePath) =>
         ExcludedFiles.Any(e => string.Equals(e, filePath, StringComparison.OrdinalIgnoreCase));
@@ -39,6 +40,18 @@ public class ScreensaverConfig
             ExcludedFiles.RemoveAt(index);
         else
             ExcludedFiles.Add(filePath);
+    }
+
+    public bool IsMonitorDisabled(string deviceName) =>
+        DisabledMonitors.Any(d => string.Equals(d, deviceName, StringComparison.OrdinalIgnoreCase));
+
+    public void ToggleMonitor(string deviceName)
+    {
+        var index = DisabledMonitors.FindIndex(d => string.Equals(d, deviceName, StringComparison.OrdinalIgnoreCase));
+        if (index >= 0)
+            DisabledMonitors.RemoveAt(index);
+        else
+            DisabledMonitors.Add(deviceName);
     }
 
     public static ScreensaverConfig Load()

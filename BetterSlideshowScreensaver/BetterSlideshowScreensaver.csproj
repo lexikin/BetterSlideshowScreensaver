@@ -13,4 +13,10 @@
         <Move SourceFiles="$(OutputPath)$(AssemblyName).exe" DestinationFiles="$(OutputPath)$(AssemblyName).scr" />
     </Target>
 
+    <ItemGroup>
+        <Content Include="monitor.png">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
 </Project>
