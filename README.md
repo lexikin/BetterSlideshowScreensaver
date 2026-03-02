@@ -6,9 +6,21 @@ Also remembers what image you were looking at if you hit Ctrl will show you the 
 
 [You can download it from here](https://github.com/lexikin/BetterSlideshowScreensaver/releases)
 
+Install instructions:
+Windows - Move the .scr file to System32 and it should show up in screensaver settings, configure a folder and proceed as such.
+
+Linux - Headache, I'd run it as a service since XScreensaver doesnt want to play nice.
+
 Make an issue if you want a new feature I dont bite.
+
+Config screen
 
 <img width="481" height="441" alt="image" src="https://github.com/user-attachments/assets/d6f47a28-2f37-4a1d-91df-125c4b1945e7" />
 
+Recent images browser
+
 <img width="1194" height="794" alt="image" src="https://github.com/user-attachments/assets/5cb94529-4f16-49ea-97be-72c9aeaafcfb" />
 
+Recent images browser (WINE).
+
+<img width="1167" height="797" alt="image" src="https://github.com/user-attachments/assets/80079613-a530-449c-a6c3-561136375787" />
