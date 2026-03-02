@@ -44,6 +44,34 @@ public class ScreensaverForm : Form
 
         SetupCommon();
 
+        var lines = new List<string>();
+        if (!Installer.IsInstalled || !Installer.IsUpToDate)
+            lines.Add("Screensaver not installed");
+        if (!Installer.IsActiveScreensaver())
+            lines.Add("Not set as active screensaver");
+
+        if (lines.Count > 0)
+        {
+            var warning = new Label
+            {
+                Text = string.Join("\n", lines),
+                AutoSize = true,
+                ForeColor = Color.FromArgb(180, Color.White),
+                BackColor = Color.Transparent,
+                Font = new Font("Segoe UI", 9f),
+                TextAlign = ContentAlignment.BottomRight,
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Right
+            };
+            Controls.Add(warning);
+            warning.BringToFront();
+            Layout += (_, _) =>
+            {
+                warning.Location = new Point(
+                    ClientSize.Width - warning.Width - 12,
+                    ClientSize.Height - warning.Height - 8);
+            };
+        }
+
         KeyDown += OnKeyDown;
         MouseMove += OnMouseMove;
         MouseClick += (_, _) => DismissRequested?.Invoke(this, EventArgs.Empty);

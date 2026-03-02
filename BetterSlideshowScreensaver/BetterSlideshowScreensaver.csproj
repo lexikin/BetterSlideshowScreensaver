@@ -13,8 +13,16 @@
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     </PropertyGroup>
 
+    <Target Name="KillProcess" BeforeTargets="Build;Publish">
+        <Exec Command="taskkill /F /IM $(AssemblyName).exe 2>nul &amp; taskkill /F /IM $(AssemblyName).scr 2>nul &amp; exit /b 0" IgnoreExitCode="true" />
+    </Target>
+
     <Target Name="RenameToScr" AfterTargets="Build">
         <Move SourceFiles="$(OutputPath)$(AssemblyName).exe" DestinationFiles="$(OutputPath)$(AssemblyName).scr" />
+    </Target>
+
+    <Target Name="RenameToScrOnPublish" AfterTargets="Publish">
+        <Move SourceFiles="$(PublishDir)$(AssemblyName).exe" DestinationFiles="$(PublishDir)$(AssemblyName).scr" />
     </Target>
 
     <ItemGroup>

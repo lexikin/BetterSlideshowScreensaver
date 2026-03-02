@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace BetterSlideshowScreensaver;
 
 public static class ScreensaverController
@@ -9,7 +11,7 @@ public static class ScreensaverController
     private static System.Windows.Forms.Timer? _timer;
     private static ScreensaverConfig _config = new();
     private static readonly Random Rng = new();
-    private static readonly List<(string Path, DateTime ShownAt)> _history = new();
+    private static List<(string Path, DateTime ShownAt)> _history = new();
     private static ApplicationContext? _appContext;
 
     public static void Run()
@@ -32,6 +34,9 @@ public static class ScreensaverController
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
+
+        // Load persisted history from previous sessions
+        _history = ScreensaverConfig.LoadHistory();
 
         _currentIndex = Rng.Next(_images.Count);
 
@@ -143,26 +148,24 @@ public static class ScreensaverController
         _timer?.Stop();
         _timer?.Dispose();
 
+        // Always persist history on dismiss
+        ScreensaverConfig.SaveHistory(_history);
+
         foreach (var (form, _) in Forms)
         {
             if (!form.IsDisposed)
                 form.Close();
         }
 
-        if (openFileBrowser && !string.IsNullOrEmpty(_currentImagePath) && File.Exists(_currentImagePath))
-        {
-            // Cursor.Hide() was called once per screensaver form, so we
-            // need a matching Cursor.Show() for each to restore visibility.
-            for (var i = 0; i < Forms.Count; i++)
-                Cursor.Show();
+        // Cursor.Hide() was called once per screensaver form, so we
+        // need a matching Cursor.Show() for each to restore visibility.
+        for (var i = 0; i < Forms.Count; i++)
+            Cursor.Show();
 
-            var browser = new FileBrowserForm(_config.ImageFolderPath, _currentImagePath, _config, _history);
-            browser.FormClosed += (_, _) => _appContext?.ExitThread();
-            browser.Show();
-        }
-        else
-        {
-            _appContext?.ExitThread();
-        }
+        // Always launch the tray process. If Ctrl was held, also show history.
+        PendingBrowse.Save(_currentImagePath, _config.ImageFolderPath, showHistory: openFileBrowser);
+        Process.Start(Environment.ProcessPath!, "/browse");
+
+        _appContext?.ExitThread();
     }
 }

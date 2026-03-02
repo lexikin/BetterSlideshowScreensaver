@@ -27,4 +27,20 @@ public static class NativeMethods
 
     [DllImport("user32.dll")]
     public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr OpenInputDesktop(uint dwFlags, bool fInherit, uint dwDesiredAccess);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool CloseDesktop(IntPtr hDesktop);
+
+    public static bool IsDesktopLocked()
+    {
+        const uint DESKTOP_SWITCHDESKTOP = 0x0100;
+        var hDesktop = OpenInputDesktop(0, false, DESKTOP_SWITCHDESKTOP);
+        if (hDesktop == IntPtr.Zero)
+            return true;
+        CloseDesktop(hDesktop);
+        return false;
+    }
 }

@@ -3,7 +3,7 @@ using System.Collections.Specialized;
 
 namespace BetterSlideshowScreensaver;
 
-public class FileBrowserForm : Form
+public class HistoryForm : Form
 {
     private ThumbnailPanel? _panel;
     private readonly ScreensaverConfig _config;
@@ -15,12 +15,11 @@ public class FileBrowserForm : Form
     private readonly List<(string Path, DateTime ShownAt)> _history;
     private readonly ListView _recentList;
 
-    public FileBrowserForm(string folderPath, string selectedImagePath, ScreensaverConfig config,
-        List<(string Path, DateTime ShownAt)>? history = null)
+    public HistoryForm(string folderPath, string selectedImagePath, ScreensaverConfig config)
     {
         _config = config;
-        _history = history ?? new List<(string Path, DateTime ShownAt)>();
-        Text = "Grenzer's Less Shitty Slideshow Screensaver - File Browser";
+        _history = ScreensaverConfig.LoadHistory();
+        Text = "Grenzer's Less Shitty Slideshow Screensaver - History";
         Icon = AppIcon.Load();
         Size = new Size(1200, 800);
         StartPosition = FormStartPosition.CenterScreen;
@@ -65,6 +64,12 @@ public class FileBrowserForm : Form
             BackColor = SystemColors.ControlLight
         };
 
+        var recentImageList = new ImageList
+        {
+            ImageSize = new Size(48, 48),
+            ColorDepth = ColorDepth.Depth32Bit
+        };
+
         _recentList = new ListView
         {
             Dock = DockStyle.Fill,
@@ -72,7 +77,8 @@ public class FileBrowserForm : Form
             FullRowSelect = true,
             HeaderStyle = ColumnHeaderStyle.None,
             BackColor = SystemColors.ControlLight,
-            MultiSelect = false
+            MultiSelect = false,
+            SmallImageList = recentImageList
         };
         _recentList.Columns.Add("Image / Time ago", -1);
 
@@ -148,6 +154,7 @@ public class FileBrowserForm : Form
     private void PopulateRecentList()
     {
         _recentList.Items.Clear();
+        _recentList.SmallImageList!.Images.Clear();
 
         // Dedupe: keep only the latest occurrence per path, then reverse for most-recent-first
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -158,12 +165,78 @@ public class FileBrowserForm : Form
                 deduped.Add(_history[i]);
         }
 
-        foreach (var (path, shownAt) in deduped)
+        // Add placeholder images and items
+        var imageList = _recentList.SmallImageList;
+        var thumbSize = imageList.ImageSize;
+        using var placeholder = new Bitmap(thumbSize.Width, thumbSize.Height);
+        using (var g = Graphics.FromImage(placeholder))
+            g.Clear(SystemColors.ControlLight);
+
+        for (var i = 0; i < deduped.Count; i++)
         {
-            var item = new ListViewItem($"{Path.GetFileName(path)}  —  {FormatTimeAgo(shownAt)}");
-            item.Tag = path;
-            item.ToolTipText = path;
+            var (path, shownAt) = deduped[i];
+            imageList.Images.Add((Image)placeholder.Clone());
+            var item = new ListViewItem($"{Path.GetFileName(path)}  —  {FormatTimeAgo(shownAt)}")
+            {
+                Tag = path,
+                ToolTipText = path,
+                ImageIndex = i
+            };
             _recentList.Items.Add(item);
+        }
+
+        // Load real thumbnails in background
+        var paths = deduped.Select(d => d.Path).ToList();
+        Task.Run(() =>
+        {
+            for (var i = 0; i < paths.Count; i++)
+            {
+                var thumb = CreateRecentThumbnail(paths[i], thumbSize);
+                if (thumb == null) continue;
+                var index = i;
+                try
+                {
+                    _recentList.Invoke(() =>
+                    {
+                        if (_recentList.IsDisposed) return;
+                        imageList.Images[index] = thumb;
+                        if (index < _recentList.Items.Count)
+                            _recentList.Invalidate(_recentList.Items[index].Bounds);
+                    });
+                }
+                catch (ObjectDisposedException) { break; }
+                catch (InvalidOperationException) { break; }
+            }
+        });
+    }
+
+    private static Bitmap? CreateRecentThumbnail(string path, Size size)
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(path);
+            using var ms = new MemoryStream(bytes);
+            using var original = Image.FromStream(ms);
+
+            var thumb = new Bitmap(size.Width, size.Height);
+            using var g = Graphics.FromImage(thumb);
+            g.Clear(Color.Black);
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+
+            var ratioX = (double)size.Width / original.Width;
+            var ratioY = (double)size.Height / original.Height;
+            var ratio = Math.Min(ratioX, ratioY);
+            var newW = (int)(original.Width * ratio);
+            var newH = (int)(original.Height * ratio);
+            var x = (size.Width - newW) / 2;
+            var y = (size.Height - newH) / 2;
+
+            g.DrawImage(original, x, y, newW, newH);
+            return thumb;
+        }
+        catch
+        {
+            return null;
         }
     }
 
