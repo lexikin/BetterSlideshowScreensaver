@@ -23,4 +23,5 @@ Recent images browser
 
 Recent images browser (WINE).
 
-<img width="1167" height="797" alt="image" src="https://github.com/user-attachments/assets/80079613-a530-449c-a6c3-561136375787" />
+![test](https://github.com/user-attachments/assets/185ebbe2-8e13-43ec-a07e-59e500ab1373)
+
