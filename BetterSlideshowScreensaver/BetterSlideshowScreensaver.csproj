@@ -11,6 +11,7 @@
         <SelfContained>true</SelfContained>
         <RuntimeIdentifier>win-x64</RuntimeIdentifier>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+        <InformationalVersion>dev</InformationalVersion>
     </PropertyGroup>
 
     <Target Name="KillProcess" BeforeTargets="Build;Publish">

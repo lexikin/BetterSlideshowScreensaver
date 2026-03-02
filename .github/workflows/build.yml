@@ -17,7 +17,12 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - run: dotnet publish BetterSlideshowScreensaver/BetterSlideshowScreensaver.csproj -c Release -o publish
+      - name: Compute build tag
+        id: tag
+        shell: bash
+        run: echo "TAG=build-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+
+      - run: dotnet publish BetterSlideshowScreensaver/BetterSlideshowScreensaver.csproj -c Release -o publish /p:InformationalVersion=${{ steps.tag.outputs.TAG }}
 
       - name: Rename exe to scr
         run: mv publish/BetterSlideshowScreensaver.exe publish/BetterSlideshowScreensaver.scr
@@ -34,7 +39,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          TAG="build-$(date +%Y%m%d-%H%M%S)"
+          TAG="${{ steps.tag.outputs.TAG }}"
           SHORT_SHA="${GITHUB_SHA::7}"
           gh release create "$TAG" \
             --title "Build $SHORT_SHA" \

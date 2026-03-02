@@ -78,7 +78,7 @@ public static class Installer
         return true;
     }
 
-    private static bool CopyToSystem32(string sourcePath)
+    public static bool CopyToSystem32(string sourcePath)
     {
         // Try direct copy first (in case already elevated)
         try
@@ -89,7 +89,7 @@ public static class Installer
         catch (UnauthorizedAccessException)
         {
             // Need elevation — re-launch with runas
-            return LaunchElevatedInstall();
+            return LaunchElevatedInstall(sourcePath);
         }
     }
 
@@ -135,14 +135,14 @@ public static class Installer
         }
     }
 
-    private static bool LaunchElevatedInstall()
+    private static bool LaunchElevatedInstall(string sourcePath)
     {
         try
         {
             var psi = new ProcessStartInfo
             {
                 FileName = Environment.ProcessPath!,
-                Arguments = $"/install \"{Environment.ProcessPath}\"",
+                Arguments = $"/install \"{sourcePath}\"",
                 Verb = "runas",
                 UseShellExecute = true
             };

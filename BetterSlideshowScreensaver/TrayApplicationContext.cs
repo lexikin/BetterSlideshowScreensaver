@@ -11,6 +11,7 @@ public class TrayApplicationContext : ApplicationContext
     private readonly string _selectedImagePath;
     private HistoryForm? _historyForm;
     private readonly System.Windows.Forms.Timer _signalTimer;
+    private readonly System.Windows.Forms.Timer _updateTimer;
 
     public TrayApplicationContext(ScreensaverConfig config, string folderPath, string selectedImagePath)
     {
@@ -59,6 +60,12 @@ public class TrayApplicationContext : ApplicationContext
             ExitThread();
         });
         _notifyIcon.ContextMenuStrip = trayMenu;
+
+        // Auto-update: check immediately, then every 4 hours
+        _ = Task.Run(() => AutoUpdater.RunUpdateCycleAsync(_notifyIcon));
+        _updateTimer = new System.Windows.Forms.Timer { Interval = 4 * 60 * 60 * 1000 };
+        _updateTimer.Tick += (_, _) => _ = Task.Run(() => AutoUpdater.RunUpdateCycleAsync(_notifyIcon));
+        _updateTimer.Start();
     }
 
     public void ShowHistory()
