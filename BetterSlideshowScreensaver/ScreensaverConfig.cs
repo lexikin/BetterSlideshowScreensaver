@@ -165,25 +165,4 @@ public class PendingBrowse
             return null;
         }
     }
-
-    public static PendingBrowse? PeekStale(TimeSpan maxAge)
-    {
-        if (!File.Exists(MarkerPath))
-            return null;
-
-        try
-        {
-            var json = File.ReadAllText(MarkerPath);
-            var marker = JsonSerializer.Deserialize<PendingBrowse>(json, JsonOptions);
-            if (marker != null && DateTime.UtcNow - marker.Timestamp < maxAge)
-                return marker;
-            File.Delete(MarkerPath);
-            return null;
-        }
-        catch
-        {
-            try { File.Delete(MarkerPath); } catch { }
-            return null;
-        }
-    }
 }

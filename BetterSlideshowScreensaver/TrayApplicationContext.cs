@@ -7,25 +7,29 @@ public class TrayApplicationContext : ApplicationContext
 
     private readonly NotifyIcon _notifyIcon;
     private readonly ScreensaverConfig _config;
-    private readonly string _folderPath;
-    private readonly string _selectedImagePath;
+    private string _folderPath;
+    private string _selectedImagePath = "";
     private HistoryForm? _historyForm;
     private readonly System.Windows.Forms.Timer _signalTimer;
     private readonly System.Windows.Forms.Timer _updateTimer;
+    private readonly EventWaitHandle _showHistoryEvent;
 
-    public TrayApplicationContext(ScreensaverConfig config, string folderPath, string selectedImagePath)
+    public TrayApplicationContext(ScreensaverConfig config, EventWaitHandle showHistoryEvent)
     {
         _config = config;
-        _folderPath = folderPath;
-        _selectedImagePath = selectedImagePath;
+        _showHistoryEvent = showHistoryEvent;
+        _folderPath = config.ImageFolderPath;
 
-        // Poll for show-history signals from other instances
-        var showHistoryEvent = EventWaitHandle.OpenExisting(ShowHistoryEventName);
+        // A marker may already be waiting (e.g. the tray was started by a screensaver
+        // dismiss). Honor it now, including showing history if requested.
+        ConsumePendingBrowse();
+
+        // Poll for show-history signals from screensaver/other processes.
         _signalTimer = new System.Windows.Forms.Timer { Interval = 500 };
         _signalTimer.Tick += (_, _) =>
         {
-            if (showHistoryEvent.WaitOne(0))
-                ShowHistory();
+            if (_showHistoryEvent.WaitOne(0))
+                ConsumePendingBrowse();
         };
         _signalTimer.Start();
 
@@ -66,6 +70,25 @@ public class TrayApplicationContext : ApplicationContext
         _updateTimer = new System.Windows.Forms.Timer { Interval = 4 * 60 * 60 * 1000 };
         _updateTimer.Tick += (_, _) => _ = Task.Run(() => AutoUpdater.RunUpdateCycleAsync(_notifyIcon));
         _updateTimer.Start();
+    }
+
+    /// <summary>
+    /// Reads the pending-browse marker left by a screensaver dismiss, updates the
+    /// folder/selected image the history window will open to, and shows history if the
+    /// marker requests it (Ctrl-dismiss). No-op when there is no marker.
+    /// </summary>
+    private void ConsumePendingBrowse()
+    {
+        var pending = PendingBrowse.LoadAndDelete();
+        if (pending == null)
+            return;
+
+        if (!string.IsNullOrEmpty(pending.FolderPath))
+            _folderPath = pending.FolderPath;
+        _selectedImagePath = pending.ImagePath;
+
+        if (pending.ShowHistory)
+            ShowHistory();
     }
 
     public void ShowHistory()

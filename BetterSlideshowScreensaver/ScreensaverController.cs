@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace BetterSlideshowScreensaver;
 
 public static class ScreensaverController
@@ -13,10 +11,16 @@ public static class ScreensaverController
     private static readonly Random Rng = new();
     private static List<(string Path, DateTime ShownAt)> _history = new();
     private static ApplicationContext? _appContext;
+    private static bool _dismissing;
 
     public static void Run()
     {
         _config = ScreensaverConfig.Load();
+
+        // Make sure the persistent tray is up before we take over the screen, so that
+        // resume is a clean signal+exit with no process spawned on the hot path. This
+        // also bootstraps the tray after an in-place auto-update.
+        TrayLauncher.EnsureRunning();
 
         if (string.IsNullOrEmpty(_config.ImageFolderPath) || !Directory.Exists(_config.ImageFolderPath))
         {
@@ -145,26 +149,39 @@ public static class ScreensaverController
 
     private static void Dismiss(bool openFileBrowser)
     {
+        // Multiple monitors mean multiple forms can each raise a dismiss (mouse move,
+        // key, click) before we tear down. Only the first one does the work.
+        if (_dismissing)
+            return;
+        _dismissing = true;
+
         _timer?.Stop();
         _timer?.Dispose();
 
         // Always persist history on dismiss
         ScreensaverConfig.SaveHistory(_history);
 
-        foreach (var (form, _) in Forms)
-        {
-            if (!form.IsDisposed)
-                form.Close();
-        }
+        // Hand the current image + intent to the persistent tray (which outlives this
+        // process), then exit cleanly. We deliberately do NOT spawn UI and linger: a
+        // screensaver that spawns a sibling process and dies leaves the foreground in
+        // limbo (frozen blank screen, no cursor) because the new process has no
+        // foreground rights and nothing valid is left to activate. Signalling an
+        // already-running tray and exiting lets Windows restore the prior desktop.
+        PendingBrowse.Save(_currentImagePath, _config.ImageFolderPath, showHistory: openFileBrowser);
+        TrayLauncher.EnsureRunningAndSignal();
 
         // Cursor.Hide() was called once per screensaver form, so we
         // need a matching Cursor.Show() for each to restore visibility.
         for (var i = 0; i < Forms.Count; i++)
             Cursor.Show();
 
-        // Always launch the tray process. If Ctrl was held, also show history.
-        PendingBrowse.Save(_currentImagePath, _config.ImageFolderPath, showHistory: openFileBrowser);
-        Process.Start(Environment.ProcessPath!, "/browse");
+        // Hide the full-screen windows immediately so the desktop is revealed and
+        // repainted while our message loop is still alive, then exit.
+        foreach (var (form, _) in Forms)
+        {
+            if (!form.IsDisposed)
+                form.Hide();
+        }
 
         _appContext?.ExitThread();
     }
