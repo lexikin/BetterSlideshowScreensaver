@@ -7,6 +7,8 @@ namespace BetterSlideshowScreensaver;
 public static class Installer
 {
     private const string ScrName = "BetterSlideshowScreensaver.scr";
+    private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string RunValueName = "BetterSlideshowScreensaver";
 
     public static string InstalledPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), ScrName);
@@ -52,6 +54,37 @@ public static class Installer
     }
 
     /// <summary>
+    /// Registers the persistent tray to start at logon (HKCU Run key), pointing at the
+    /// installed System32 copy. The tray owns the notify icon and history window and
+    /// must outlive any single screensaver run.
+    /// </summary>
+    public static void RegisterTrayAutostart()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true);
+            key?.SetValue(RunValueName, $"\"{InstalledPath}\" /tray");
+        }
+        catch
+        {
+            // Non-fatal — the tray is also bootstrapped on the next screensaver run.
+        }
+    }
+
+    public static void UnregisterTrayAutostart()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true);
+            key?.DeleteValue(RunValueName, throwOnMissingValue: false);
+        }
+        catch
+        {
+            // Non-fatal.
+        }
+    }
+
+    /// <summary>
     /// Shows an install/update form if the screensaver is not installed, outdated, or not active.
     /// </summary>
     public static bool TryInstallToSystem32()
@@ -74,6 +107,14 @@ public static class Installer
 
         if (form.SetActiveChecked && (IsInstalled || form.InstallChecked))
             SetAsActiveScreensaver();
+
+        // Set up the persistent tray: run it at logon and start it now so there is a
+        // tray icon to resume from immediately (no logoff required).
+        if (IsInstalled)
+        {
+            RegisterTrayAutostart();
+            TrayLauncher.EnsureRunning();
+        }
 
         return true;
     }

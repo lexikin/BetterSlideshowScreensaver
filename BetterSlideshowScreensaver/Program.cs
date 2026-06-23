@@ -1,41 +1,25 @@
-using Microsoft.Win32;
-
 namespace BetterSlideshowScreensaver;
 
 static class Program
 {
+    // The single-instance mutex and the show-history event are held for the entire
+    // lifetime of the tray process. They MUST be rooted in static fields — if they
+    // were locals they would become GC-eligible the moment the method returned, and
+    // their finalizers would close the underlying named handles (silently dropping
+    // single-instance protection and destroying the event other processes signal).
+    private static Mutex? _trayMutex;
+    private static EventWaitHandle? _trayEvent;
+
     [STAThread]
     static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
 
-        // Self-install to System32 if not already there
+        // Self-install to System32 if not already there (no-op when already running
+        // from System32, e.g. the OS-launched screensaver or the autostart tray).
         Installer.TryInstallToSystem32();
 
-        // Check for stale pending-browse marker (< 24h) before handling normal args.
-        // Covers the case where the /browse process was killed before it could show the form.
-        var stale = PendingBrowse.PeekStale(TimeSpan.FromHours(24));
-        if (stale != null)
-        {
-            // Consume it so we don't loop
-            PendingBrowse.LoadAndDelete();
-            if (SignalExistingInstance(stale.ShowHistory))
-                return;
-            var config = ScreensaverConfig.Load();
-            var trayCtx = new TrayApplicationContext(config, stale.FolderPath, stale.ImagePath);
-            if (stale.ShowHistory)
-                trayCtx.ShowHistory();
-            Application.Run(trayCtx);
-            return;
-        }
-
-        if (args.Length == 0)
-        {
-            ScreensaverController.Run();
-            return;
-        }
-
-        var firstArg = args[0].ToLowerInvariant().TrimStart('-', '/');
+        var firstArg = args.Length > 0 ? args[0].ToLowerInvariant().TrimStart('-', '/') : "";
 
         // Windows passes /c:HWND for configure — strip everything after the flag letter
         var flag = firstArg.Split(':')[0];
@@ -60,8 +44,8 @@ static class Program
                     ScreensaverController.RunPreview(hwnd);
                 break;
 
-            case "browse":
-                HandleBrowse();
+            case "tray":
+                RunTray();
                 break;
 
             case "install":
@@ -74,68 +58,32 @@ static class Program
         }
     }
 
-    private static void HandleBrowse()
+    /// <summary>
+    /// Runs the persistent tray process (started at logon and at install). Enforces a
+    /// single instance: if another tray already owns the mutex, signals it to pick up
+    /// any pending marker and exits.
+    /// </summary>
+    private static void RunTray()
     {
-        var pending = PendingBrowse.LoadAndDelete();
-        if (pending == null) return;
-
-        // If another tray instance is already running, signal it and exit
-        if (SignalExistingInstance(pending.ShowHistory))
+        _trayMutex = new Mutex(initiallyOwned: true, TrayApplicationContext.MutexName, out var createdNew);
+        if (!createdNew)
+        {
+            // Another tray is already running — hand off and exit.
+            TrayLauncher.SignalExisting();
             return;
+        }
+
+        _trayEvent = new EventWaitHandle(false, EventResetMode.AutoReset,
+            TrayApplicationContext.ShowHistoryEventName);
+
+        // Re-assert the logon autostart entry (self-healing after an in-place update).
+        if (Installer.IsRunningFromSystem32)
+            Installer.RegisterTrayAutostart();
 
         var config = ScreensaverConfig.Load();
-        var trayCtx = new TrayApplicationContext(config, pending.FolderPath, pending.ImagePath);
+        Application.Run(new TrayApplicationContext(config, _trayEvent));
 
-        if (NativeMethods.IsDesktopLocked())
-        {
-            if (pending.ShowHistory)
-            {
-                // Wait for desktop unlock, then show the history window
-                SystemEvents.SessionSwitch += (s, e) =>
-                {
-                    if (e.Reason == SessionSwitchReason.SessionUnlock)
-                        trayCtx.ShowHistory();
-                };
-            }
-            Application.Run(trayCtx);
-        }
-        else
-        {
-            if (pending.ShowHistory)
-                trayCtx.ShowHistory();
-            Application.Run(trayCtx);
-        }
-    }
-
-    /// <summary>
-    /// Tries to acquire the tray mutex. If already held by another instance,
-    /// signals it to show history (if requested) and returns true.
-    /// If acquired, creates the show-history event and keeps the mutex alive.
-    /// </summary>
-    private static bool SignalExistingInstance(bool showHistory)
-    {
-        var mutex = new Mutex(true, TrayApplicationContext.MutexName, out var createdNew);
-        if (createdNew)
-        {
-            // We own the mutex — create the event for future signals and keep both alive
-            _ = new EventWaitHandle(false, EventResetMode.AutoReset,
-                TrayApplicationContext.ShowHistoryEventName);
-            // Don't dispose mutex — it must stay alive for the process lifetime
-            return false;
-        }
-
-        // Another instance owns the mutex — signal it
-        mutex.Dispose();
-        if (showHistory)
-        {
-            try
-            {
-                var evt = EventWaitHandle.OpenExisting(TrayApplicationContext.ShowHistoryEventName);
-                evt.Set();
-                evt.Dispose();
-            }
-            catch (WaitHandleCannotBeOpenedException) { }
-        }
-        return true;
+        GC.KeepAlive(_trayMutex);
+        GC.KeepAlive(_trayEvent);
     }
 }
