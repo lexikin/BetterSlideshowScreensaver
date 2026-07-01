@@ -17,7 +17,15 @@ static class Program
 
         // Self-install to System32 if not already there (no-op when already running
         // from System32, e.g. the OS-launched screensaver or the autostart tray).
-        Installer.TryInstallToSystem32();
+        // Returns true only when the setup dialog just ran and was accepted — i.e. a
+        // manual first-run of the downloaded binary. Open Settings straight away so the
+        // user can pick an image folder, instead of falling through to launching the
+        // screensaver with nothing configured.
+        if (Installer.TryInstallToSystem32())
+        {
+            Application.Run(new ConfigForm());
+            return;
+        }
 
         var firstArg = args.Length > 0 ? args[0].ToLowerInvariant().TrimStart('-', '/') : "";
 
