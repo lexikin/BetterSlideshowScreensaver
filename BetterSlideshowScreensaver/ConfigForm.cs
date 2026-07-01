@@ -48,8 +48,10 @@ public class ConfigForm : Form
             ForeColor = SystemColors.GrayText
         };
 
+        var previewButton = new Button { Text = "Preview", Location = new Point(12, 380), Width = 90 };
         var okButton = new Button { Text = "OK", Location = new Point(296, 380), Width = 80, DialogResult = DialogResult.OK };
         var cancelButton = new Button { Text = "Cancel", Location = new Point(384, 380), Width = 80 };
+        previewButton.Click += PreviewButton_Click;
         okButton.Click += OkButton_Click;
         cancelButton.Click += (_, _) => Close();
 
@@ -62,7 +64,7 @@ public class ConfigForm : Form
             intervalLabel, _intervalNumeric,
             _monitorPanel,
             tipLabel,
-            okButton, cancelButton
+            previewButton, okButton, cancelButton
         });
 
         _scanDebounce = new System.Windows.Forms.Timer { Interval = 400 };
@@ -134,12 +136,44 @@ public class ConfigForm : Form
 
     private void OkButton_Click(object? sender, EventArgs e)
     {
+        SaveConfig();
+        Close();
+    }
+
+    private void SaveConfig()
+    {
         var config = ScreensaverConfig.Load();
         config.ImageFolderPath = _folderPathTextBox.Text;
         config.SlideIntervalSeconds = (int)_intervalNumeric.Value;
         config.DisabledMonitors = _monitorPanel.GetDisabledMonitors();
         config.Save();
-        Close();
+    }
+
+    private void PreviewButton_Click(object? sender, EventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_folderPathTextBox.Text) || !Directory.Exists(_folderPathTextBox.Text))
+        {
+            MessageBox.Show(this, "Please select a valid image folder before previewing.",
+                "Preview", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // Persist the current settings so the preview reflects what's on screen, then
+        // launch the real screensaver full-screen. It runs as a separate process
+        // (exactly how Windows launches it) and reads config from disk. Prefer the
+        // installed System32 copy so we don't re-trigger the installer from a
+        // non-System32 build.
+        SaveConfig();
+
+        try
+        {
+            var previewExe = Installer.IsInstalled ? Installer.InstalledPath : Environment.ProcessPath!;
+            System.Diagnostics.Process.Start(previewExe, "/s");
+        }
+        catch
+        {
+            // Best effort — a failed preview launch is non-fatal.
+        }
     }
 
     private class MonitorPreviewPanel : Panel
